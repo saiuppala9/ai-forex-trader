@@ -1,441 +1,423 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
-  Divider, 
-  Button, 
-  Chip, 
-  Grid, 
-  CircularProgress,
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Chip,
   Alert,
-  LinearProgress,
-  Stack
+  CircularProgress,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
-import AiAnalysisService from '../services/aiAnalysisService';
+import {
+  TrendingUp,
+  TrendingDown,
+  ExpandMore
+} from '@mui/icons-material';
+import AIAnalysisService from '../services/aiAnalysisService';
 
-const AIAnalysisPanel = ({ symbol, onExecuteTrade }) => {
-  const [loading, setLoading] = useState(true);
-  const [analysis, setAnalysis] = useState(null);
+const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
+
+const AIAnalysisPanel = ({ symbol }) => {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [tradeExecuting, setTradeExecuting] = useState(false);
-  const [tradeResult, setTradeResult] = useState(null);
+  const [analysisData, setAnalysisData] = useState(null);
+  const [selectedTimeframe, setSelectedTimeframe] = useState('consensus');
+  const [performanceMetrics, setPerformanceMetrics] = useState(null);
+  const [signalHistory, setSignalHistory] = useState([]);
 
-  // Fetch AI analysis when symbol changes
   useEffect(() => {
-    let isMounted = true;
-    
-    const fetchAnalysis = async () => {
+    if (symbol) {
+      fetchAnalysis();
+    }
+  }, [symbol]);
+
+  const fetchAnalysis = async () => {
+    try {
       setLoading(true);
       setError(null);
       
-      try {
-        const data = await AiAnalysisService.getAnalysis(symbol);
-        if (isMounted) {
-          setAnalysis(data);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError('Failed to fetch AI analysis. Please try again.');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-    
-    fetchAnalysis();
-    
-    // Refresh analysis every 60 seconds
-    const intervalId = setInterval(fetchAnalysis, 60000);
-    
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, [symbol]);
-
-  // Handle trade execution
-  const handleExecuteTrade = async (action) => {
-    setTradeExecuting(true);
-    setTradeResult(null);
-    
-    try {
-      const tradeData = {
-        symbol,
-        action, // 'BUY' or 'SELL'
-        entry_price: analysis.entry_price,
-        stop_loss: analysis.stop_loss,
-        target_price: analysis.target_price,
-        confidence: analysis.confidence,
-        risk_reward_ratio: analysis.risk_reward_ratio
-      };
+      const data = await AIAnalysisService.getMultiTimeframeAnalysis(symbol, timeframes);
+      setAnalysisData(data);
       
-      const result = await AiAnalysisService.executeTrade(tradeData);
-      setTradeResult({
-        success: true,
-        message: `${action} order placed successfully at ${result.executed_price}`,
-        data: result
-      });
+      const metrics = await AIAnalysisService.getPerformanceMetrics(symbol);
+      setPerformanceMetrics(metrics);
       
-      // Notify parent component
-      if (onExecuteTrade) {
-        onExecuteTrade(result);
-      }
+      const history = await AIAnalysisService.getSignalHistory(symbol);
+      setSignalHistory(history);
     } catch (err) {
-      setTradeResult({
-        success: false,
-        message: `Failed to execute ${action} order: ${err.message}`
-      });
+      setError(err.message);
     } finally {
-      setTradeExecuting(false);
+      setLoading(false);
     }
   };
 
-  // Render confidence meter
-  const renderConfidenceMeter = (confidence) => {
-    let color = '#FFB347'; // orange for medium confidence
-    
-    if (confidence >= 0.7) {
-      color = '#4CAF50'; // green for high confidence
-    } else if (confidence < 0.4) {
-      color = '#F44336'; // red for low confidence
-    }
-    
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, mb: 2 }}>
-        <Typography variant="body2" sx={{ mr: 1, minWidth: '100px' }}>
-          Confidence:
-        </Typography>
-        <Box sx={{ width: '100%', mr: 1 }}>
-          <LinearProgress 
-            variant="determinate" 
-            value={confidence * 100} 
-            sx={{ 
-              height: 8, 
-              borderRadius: 5,
-              bgcolor: 'rgba(255,255,255,0.1)',
-              '& .MuiLinearProgress-bar': {
-                bgcolor: color
-              }
-            }} 
-          />
-        </Box>
-        <Typography variant="body2" sx={{ minWidth: '40px' }}>
-          {Math.round(confidence * 100)}%
-        </Typography>
-      </Box>
-    );
+  const handleTimeframeChange = (timeframe) => {
+    setSelectedTimeframe(timeframe);
   };
 
-  // Render pattern chips
-  const renderPatterns = (patterns) => {
-    if (!patterns || patterns.length === 0) {
-      return <Typography variant="body2" color="text.secondary">No patterns detected</Typography>;
-    }
-    
+  const renderTimeframeTabs = () => {
     return (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-        {patterns.map((pattern, index) => (
-          <Chip 
-            key={index} 
-            label={pattern.replace('_', ' ')} 
-            size="small" 
-            sx={{ 
-              textTransform: 'capitalize',
-              bgcolor: 'rgba(255,255,255,0.05)'
-            }} 
+      <Tabs
+        value={selectedTimeframe}
+        onChange={(e, value) => handleTimeframeChange(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ mb: 3 }}
+      >
+        {timeframes.map((tf) => (
+          <Tab
+            key={tf}
+            label={tf.toUpperCase()}
+            value={tf}
           />
         ))}
-      </Box>
+        <Tab label="CONSENSUS" value="consensus" />
+      </Tabs>
     );
   };
 
-  // Determine which action to recommend based on the analysis
-  const getRecommendedAction = () => {
-    if (!analysis) return null;
-    
-    if (analysis.trend === 'BULLISH' && analysis.confidence >= 0.5) {
-      return 'BUY';
-    } else if (analysis.trend === 'BEARISH' && analysis.confidence >= 0.5) {
-      return 'SELL';
+  const renderPerformanceMetrics = () => {
+    const metrics = performanceMetrics || {};
+    if (!metrics || !Object.keys(metrics).length) {
+      return (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>Performance Metrics</Typography>
+          <Alert severity="info">
+            No performance metrics available yet.
+          </Alert>
+        </Box>
+      );
     }
-    return null;
+
+    return (
+      <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Performance Metrics</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={6} sm={3}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4" color="success.main">
+                {(metrics.winRate || 0).toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Win Rate
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4" sx={{ 
+                color: (metrics.avgProfit || 0) > 0 ? 'success.main' : 'error.main' 
+              }}>
+                {(metrics.avgProfit || 0).toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Avg Profit
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4" color="info.main">
+                {(metrics.accuracy || 0).toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Accuracy
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4">
+                {metrics.totalTrades || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Trades
+              </Typography>
+            </Box>
+          </Grid>
+        </Grid>
+      </Paper>
+    );
+  };
+
+  const renderSignalHistory = () => {
+    const history = signalHistory || [];
+    if (!history.length) {
+      return (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="h6" gutterBottom>Signal History</Typography>
+          <Alert severity="info">
+            No signal history available yet.
+          </Alert>
+        </Box>
+      );
+    }
+
+    return (
+      <Paper elevation={3} sx={{ p: 2, mt: 3 }}>
+        <Typography variant="h6" gutterBottom>Signal History</Typography>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Time</TableCell>
+                <TableCell>Signal</TableCell>
+                <TableCell>Confidence</TableCell>
+                <TableCell>Entry</TableCell>
+                <TableCell>Stop Loss</TableCell>
+                <TableCell>Take Profit</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {history.map((signal, index) => (
+                <TableRow key={index}>
+                  <TableCell>{new Date(signal.timestamp).toLocaleTimeString()}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {signal.signal === 'buy' ? (
+                        <TrendingUp color="success" />
+                      ) : (
+                        <TrendingDown color="error" />
+                      )}
+                      <Typography
+                        color={signal.signal === 'buy' ? 'success.main' : 'error.main'}
+                        sx={{ fontWeight: 'bold' }}
+                      >
+                        {signal.signal.toUpperCase()}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>{signal.confidence || 0}%</TableCell>
+                  <TableCell>{signal.entryPrice ? parseFloat(signal.entryPrice).toFixed(4) : '-'}</TableCell>
+                  <TableCell>{signal.stopLoss ? parseFloat(signal.stopLoss).toFixed(4) : '-'}</TableCell>
+                  <TableCell>{signal.takeProfit ? parseFloat(signal.takeProfit).toFixed(4) : '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    );
+  };
+
+  const renderAnalysis = () => {
+    if (!analysisData) {
+      return (
+        <Alert severity="info">
+          No analysis data available for {symbol}.
+        </Alert>
+      );
+    }
+    
+    const analysis = selectedTimeframe === 'consensus' ? 
+      analysisData.consensus : 
+      analysisData.timeframes[selectedTimeframe];
+    
+    if (!analysis) {
+      return (
+        <Alert severity="warning">
+          Analysis not available for {selectedTimeframe} timeframe.
+        </Alert>
+      );
+    }
+    
+    return (
+      <Box>
+        {/* Signal and Confidence */}
+        <Paper elevation={3} sx={{ p: 2, mb: 2, background: analysis.signal === 'buy' ? 'success.dark' : 'error.dark', color: 'white' }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {analysis.signal === 'buy' ? (
+                  <TrendingUp sx={{ fontSize: 40 }} />
+                ) : (
+                  <TrendingDown sx={{ fontSize: 40 }} />
+                )}
+                <Box>
+                  <Typography variant="h4" component="span" sx={{ fontWeight: 'bold', mr: 2 }}>
+                    {analysis.signal?.toUpperCase()}
+                  </Typography>
+                  <Chip 
+                    label={`${analysis.confidence}% Confidence`}
+                    color="primary"
+                    size="medium"
+                  />
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} sx={{ textAlign: { sm: 'right' } }}>
+              <Typography variant="body1">
+                Signal Generated: {new Date(analysis.timestamp).toLocaleTimeString()}
+              </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+        
+        {/* Price Levels */}
+        <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" gutterBottom>Trade Setup</Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'background.default' }}>
+                <Typography variant="subtitle2" color="text.secondary">Entry Price</Typography>
+                <Typography variant="h4">{analysis.entryPrice?.toFixed(4)}</Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'error.dark', color: 'white' }}>
+                <Typography variant="subtitle2">Stop Loss</Typography>
+                <Typography variant="h4">{analysis.stopLoss?.toFixed(4)}</Typography>
+                <Typography variant="body2">
+                  Risk: {((Math.abs(analysis.stopLoss - analysis.entryPrice) / analysis.entryPrice) * 100).toFixed(2)}%
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'success.dark', color: 'white' }}>
+                <Typography variant="subtitle2">Take Profit</Typography>
+                <Typography variant="h4">{analysis.exitPrice?.toFixed(4)}</Typography>
+                <Typography variant="body2">
+                  Target: {((Math.abs(analysis.exitPrice - analysis.entryPrice) / analysis.entryPrice) * 100).toFixed(2)}%
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Paper>
+        
+        {/* Technical Indicators */}
+        {analysis.indicators && analysis.indicators.length > 0 && (
+          <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" gutterBottom>Technical Analysis</Typography>
+            <Grid container spacing={2}>
+              {analysis.indicators.map((indicator, index) => (
+                <Grid item xs={12} sm={6} md={4} key={index}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 2,
+                      bgcolor: indicator.signal === 'buy' ? 'success.dark' : 'error.dark',
+                      color: 'white',
+                      height: '100%'
+                    }}
+                  >
+                    <Typography variant="h6">{indicator.name}</Typography>
+                    <Typography variant="body1" sx={{ mt: 1, fontWeight: 'bold' }}>
+                      {indicator.value}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        )}
+        
+        {/* Chart Patterns */}
+        {analysis.patterns && analysis.patterns.length > 0 && (
+          <Paper elevation={3} sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>Pattern Recognition</Typography>
+            <Grid container spacing={2}>
+              {analysis.patterns.map((pattern, index) => (
+                <Grid item xs={12} key={index}>
+                  <Accordion 
+                    elevation={0}
+                    defaultExpanded
+                    sx={{
+                      bgcolor: 'background.default',
+                      '&:before': { display: 'none' }
+                    }}
+                  >
+                    <AccordionSummary 
+                      expandIcon={<ExpandMore />}
+                      sx={{
+                        bgcolor: pattern.signal === 'buy' ? 'success.dark' : 'error.dark',
+                        color: 'white',
+                        '& .MuiAccordionSummary-expandIconWrapper': {
+                          color: 'white'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+                        <Typography variant="h6">{pattern.name}</Typography>
+                        <Chip 
+                          label={`${pattern.confidence}% Confidence`}
+                          color="primary"
+                          size="small"
+                          sx={{ ml: 'auto' }}
+                        />
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography variant="body1" sx={{ mt: 1 }}>
+                        {pattern.description}
+                      </Typography>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        )}
+        
+        {/* Analysis Summary */}
+        <Paper elevation={3} sx={{ p: 2, mt: 2 }}>
+          <Typography variant="h6" gutterBottom>AI Analysis Summary</Typography>
+          <Typography variant="body1">{analysis.summary}</Typography>
+        </Paper>
+      </Box>
+    );
   };
 
   if (loading) {
     return (
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          p: 2, 
-          height: '100%', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2
-        }}
-      >
-        <CircularProgress size={40} />
-        <Typography variant="body2" color="text.secondary">
-          Analyzing {symbol} with AI...
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <CircularProgress />
+        <Typography variant="body2" sx={{ mt: 2 }}>
+          Loading AI analysis...
         </Typography>
-      </Paper>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Paper elevation={3} sx={{ p: 2, height: '100%' }}>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        <Button 
-          variant="outlined" 
-          onClick={() => window.location.reload()}
-          fullWidth
-        >
-          Retry
-        </Button>
-      </Paper>
+      <Alert severity="error" sx={{ mb: 2 }}>
+        {error}
+      </Alert>
     );
   }
 
   return (
-    <Paper elevation={3} sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6" component="h2">
-          AI Analysis
+    <Box sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5" component="h2">
+          {symbol} AI Analysis
         </Typography>
-        <Chip 
-          icon={
-            analysis.trend === 'BULLISH' 
-              ? <TrendingUpIcon /> 
-              : analysis.trend === 'BEARISH' 
-                ? <TrendingDownIcon /> 
-                : <TrendingFlatIcon />
-          }
-          label={analysis.trend} 
-          color={
-            analysis.trend === 'BULLISH' 
-              ? 'success' 
-              : analysis.trend === 'BEARISH' 
-                ? 'error' 
-                : 'default'
-          }
-          variant="filled"
-          size="small"
-        />
-      </Box>
-
-      {renderConfidenceMeter(analysis.confidence)}
-
-      <Divider sx={{ my: 1.5 }} />
-      
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={6}>
-          <Typography variant="body2" color="text.secondary">Support</Typography>
-          <Typography variant="body1" fontWeight="medium">{analysis.support.toFixed(5)}</Typography>
-        </Grid>
-        <Grid item xs={6}>
-          <Typography variant="body2" color="text.secondary">Resistance</Typography>
-          <Typography variant="body1" fontWeight="medium">{analysis.resistance.toFixed(5)}</Typography>
-        </Grid>
-      </Grid>
-
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Detected patterns
-        </Typography>
-        {renderPatterns(analysis.patterns)}
-      </Box>
-
-      <Divider sx={{ my: 1.5 }} />
-      
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>Trade Recommendation</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={4}>
-            <Typography variant="body2" color="text.secondary">Entry</Typography>
-            <Typography variant="body1" fontWeight="medium">{analysis.entry_price.toFixed(5)}</Typography>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography variant="body2" color="text.secondary">Target</Typography>
-            <Typography 
-              variant="body1" 
-              fontWeight="medium" 
-              color={analysis.trend === 'BULLISH' ? 'success.main' : 'error.main'}
-            >
-              {analysis.target_price.toFixed(5)}
-            </Typography>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography variant="body2" color="text.secondary">Stop Loss</Typography>
-            <Typography 
-              variant="body1" 
-              fontWeight="medium" 
-              color="error.main"
-            >
-              {analysis.stop_loss.toFixed(5)}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Box>
-
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Market Sentiment
-        </Typography>
-        <Chip 
-          size="small"
-          label={
-            analysis.sentiment > 0.2 
-              ? 'Bullish' 
-              : analysis.sentiment < -0.2 
-                ? 'Bearish' 
-                : 'Neutral'
-          }
-          sx={{ 
-            bgcolor: 
-              analysis.sentiment > 0.2 
-                ? 'rgba(76, 175, 80, 0.1)' 
-                : analysis.sentiment < -0.2 
-                  ? 'rgba(244, 67, 54, 0.1)' 
-                  : 'rgba(255, 255, 255, 0.1)',
-            color: 
-              analysis.sentiment > 0.2 
-                ? 'success.main' 
-                : analysis.sentiment < -0.2 
-                  ? 'error.main' 
-                  : 'text.primary'
-          }} 
-        />
       </Box>
       
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Technical Indicators
-        </Typography>
-        <Grid container spacing={1}>
-          <Grid item xs={6}>
-            <Typography variant="caption" display="block" color="text.secondary">
-              RSI
-            </Typography>
-            <Typography variant="body2">
-              {analysis.indicators.RSI.toFixed(2)}
-              <Box component="span" sx={{ 
-                ml: 0.5,
-                color: 
-                  analysis.indicators.RSI > 70 
-                    ? 'error.main' 
-                    : analysis.indicators.RSI < 30 
-                      ? 'success.main' 
-                      : 'text.secondary',
-                fontSize: '0.75rem'
-              }}>
-                {analysis.indicators.RSI > 70 
-                  ? '(Overbought)' 
-                  : analysis.indicators.RSI < 30 
-                    ? '(Oversold)' 
-                    : ''}
-              </Box>
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="caption" display="block" color="text.secondary">
-              BB Position
-            </Typography>
-            <Typography variant="body2">
-              {analysis.indicators.BB_Position.toFixed(2)}
-              <Box component="span" sx={{ 
-                ml: 0.5,
-                color: 
-                  analysis.indicators.BB_Position > 0.8 
-                    ? 'error.main' 
-                    : analysis.indicators.BB_Position < 0.2 
-                      ? 'success.main' 
-                      : 'text.secondary',
-                fontSize: '0.75rem'
-              }}>
-                {analysis.indicators.BB_Position > 0.8 
-                  ? '(Upper)' 
-                  : analysis.indicators.BB_Position < 0.2 
-                    ? '(Lower)' 
-                    : '(Middle)'}
-              </Box>
-            </Typography>
-          </Grid>
-        </Grid>
-      </Box>
-
-      <Divider sx={{ my: 1.5 }} />
-      
-      {/* Trade execution buttons */}
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Button 
-          variant="contained" 
-          color="success"
-          fullWidth
-          startIcon={<ArrowUpwardIcon />}
-          disabled={tradeExecuting || analysis.trend !== 'BULLISH' || analysis.confidence < 0.5}
-          onClick={() => handleExecuteTrade('BUY')}
-        >
-          Buy
-        </Button>
-        <Button 
-          variant="contained" 
-          color="error"
-          fullWidth
-          startIcon={<ArrowDownwardIcon />}
-          disabled={tradeExecuting || analysis.trend !== 'BEARISH' || analysis.confidence < 0.5}
-          onClick={() => handleExecuteTrade('SELL')}
-        >
-          Sell
-        </Button>
-      </Box>
-      
-      {/* Trade result notification */}
-      {tradeExecuting && (
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CircularProgress size={20} />
-          <Typography variant="body2">Executing trade...</Typography>
-        </Box>
-      )}
-      
-      {tradeResult && (
-        <Alert 
-          severity={tradeResult.success ? 'success' : 'error'} 
-          sx={{ mt: 2 }}
-        >
-          {tradeResult.message}
-        </Alert>
-      )}
-
-      {/* Risk-reward ratio */}
-      {analysis.risk_reward_ratio > 0 && (
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <Typography variant="caption" color="text.secondary">
-            Risk/Reward: 
-            <Box 
-              component="span" 
-              sx={{ 
-                ml: 0.5, 
-                color: analysis.risk_reward_ratio >= 1.5 ? 'success.main' : 'text.primary',
-                fontWeight: 'medium'
-              }}
-            >
-              1:{analysis.risk_reward_ratio.toFixed(2)}
-            </Box>
-          </Typography>
-        </Box>
-      )}
-    </Paper>
+      {renderTimeframeTabs()}
+      {renderPerformanceMetrics()}
+      {renderAnalysis()}
+      {renderSignalHistory()}
+    </Box>
   );
+
+
+
 };
 
 export default AIAnalysisPanel;
