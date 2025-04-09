@@ -11,7 +11,7 @@ import aiohttp
 import feedparser
 from datetime import datetime
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from websocket_server import ws_manager
 
@@ -44,8 +44,22 @@ class BacktestRequest(BaseModel):
     position_size: float = 0.02
     max_positions: int = 5
 
+class TradeRequest(BaseModel):
+    symbol: str
+    action: str  # BUY or SELL
+    entry_price: float
+    stop_loss: float
+    target_price: float
+    confidence: float
+    risk_reward_ratio: float
+    lot_size: Optional[float] = 0.1
+    trade_note: Optional[str] = None
+
 # In-memory watchlist storage (replace with database in production)
 watchlists = {}
+
+# For storing trade history
+trade_history = {}
 
 @app.post("/api/watchlist/add")
 async def add_to_watchlist(item: WatchlistItem, current_user: User = Depends(get_current_active_user)):
@@ -102,18 +116,148 @@ async def remove_from_watchlist(symbol: str, current_user: User = Depends(get_cu
 async def get_market_analysis(
     symbol: str,
     timeframe: Optional[str] = "1h",
-    current_user: User = Depends(get_current_active_user)
+    current_user: Optional[User] = Depends(get_current_active_user)
 ):
-    """Get detailed AI analysis for a symbol"""
+    """Get detailed AI analysis for a symbol without authentication"""
     try:
-        analysis = await ai_trader.analyze_market(symbol)
-        return {
-            "symbol": symbol,
-            "timestamp": datetime.utcnow().isoformat(),
-            "analysis": analysis
-        }
+        # Format symbol for analysis (remove / character if present)
+        formatted_symbol = symbol.replace('/', '')
+        
+        # Get historical data for the symbol
+        historical_data = await market_data.get_historical_data(formatted_symbol, timeframe)
+        
+        if not historical_data.empty:
+            # Process the data for technical analysis
+            df = historical_data.copy()
+            
+            # Calculate technical indicators
+            df['SMA_20'] = df['Close'].rolling(window=20).mean()
+            df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
+            df['RSI'] = 50 + (df['Close'].diff().rolling(window=14).mean() / df['Close'].diff().abs().rolling(window=14).mean() * 50)
+            
+            # Calculate Bollinger Bands
+            sma_20 = df['Close'].rolling(window=20).mean()
+            std_20 = df['Close'].rolling(window=20).std()
+            df['BB_Upper'] = sma_20 + (std_20 * 2)
+            df['BB_Lower'] = sma_20 - (std_20 * 2)
+            
+            # Analyze the market using AI
+            analysis = await ai_trader.analyze_market(df)
+            
+            return analysis
+        else:
+            raise HTTPException(status_code=404, detail=f"No data found for {symbol}")
     except Exception as e:
         logger.error(f"Error analyzing {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/trade/execute")
+async def execute_trade(
+    trade_data: TradeRequest,
+    current_user: Optional[User] = Depends(get_current_active_user)
+):
+    """Execute a trade based on AI recommendation"""
+    try:
+        user_id = "demo_user" if current_user is None else current_user.username
+        
+        # Generate a unique trade ID
+        trade_id = f"trade-{len(trade_history.get(user_id, [])) + 1:03d}"
+        
+        # For demo purposes, simulate a successful trade execution
+        executed_price = trade_data.entry_price
+        
+        # Adjust price slightly to simulate market execution
+        if trade_data.action == "BUY":
+            # Buy at slightly higher price (simulate slippage)
+            executed_price = round(executed_price * 1.0002, 5)
+        else:
+            # Sell at slightly lower price (simulate slippage)
+            executed_price = round(executed_price * 0.9998, 5)
+        
+        # Create trade record
+        trade_record = {
+            "id": trade_id,
+            "user_id": user_id,
+            "symbol": trade_data.symbol,
+            "action": trade_data.action,
+            "entry_price": executed_price,
+            "stop_loss": trade_data.stop_loss,
+            "target_price": trade_data.target_price,
+            "lot_size": trade_data.lot_size,
+            "confidence": trade_data.confidence,
+            "risk_reward_ratio": trade_data.risk_reward_ratio,
+            "status": "OPEN",
+            "timestamp": datetime.utcnow().isoformat(),
+            "trade_note": trade_data.trade_note or f"AI-recommended {trade_data.action} trade",
+            "ai_recommended": True
+        }
+        
+        # Store trade in history
+        if user_id not in trade_history:
+            trade_history[user_id] = []
+        
+        trade_history[user_id].append(trade_record)
+        
+        # Return the executed trade details
+        return {
+            "trade_id": trade_id,
+            "symbol": trade_data.symbol,
+            "action": trade_data.action,
+            "executed_price": executed_price,
+            "status": "EXECUTED",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error executing trade: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/analysis/performance")
+async def get_performance_metrics(
+    current_user: Optional[User] = Depends(get_current_active_user)
+):
+    """Get AI performance metrics"""
+    try:
+        user_id = "demo_user" if current_user is None else current_user.username
+        
+        # For demo purposes, use mock data
+        # In a real implementation, this would analyze actual trade history
+        
+        # Generate mock performance metrics
+        win_rate = 68.5
+        avg_return = 0.42
+        total_trades = 42
+        profitable_trades = 29
+        
+        return {
+            "win_rate": win_rate,
+            "avg_return": avg_return,
+            "total_trades": total_trades,
+            "profitable_trades": profitable_trades,
+            "by_symbol": {
+                "EUR/USD": {
+                    "win_rate": 72.3,
+                    "avg_return": 0.51,
+                    "total_trades": 15
+                },
+                "GBP/USD": {
+                    "win_rate": 65.1,
+                    "avg_return": 0.38,
+                    "total_trades": 12
+                },
+                "XAU/USD": {
+                    "win_rate": 59.2,
+                    "avg_return": 0.75,
+                    "total_trades": 8
+                }
+            },
+            "historical_performance": [
+                {"date": "2025-03", "win_rate": 64.2, "return": 3.2},
+                {"date": "2025-02", "win_rate": 71.5, "return": 4.8},
+                {"date": "2025-01", "win_rate": 58.3, "return": 2.5}
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching performance metrics: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/global-markets")

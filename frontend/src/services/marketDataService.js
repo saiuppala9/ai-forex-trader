@@ -276,6 +276,208 @@ const MarketDataService = {
         { symbol: 'NATGAS', name: 'Natural Gas', fullSymbol: 'NYMEX:NG' },
       ],
     };
+  },
+  
+  /**
+   * Search for market symbols
+   * @param {string} query Search query
+   * @returns {Promise<Array>} Array of symbol objects
+   */
+  async searchSymbols(query) {
+    try {
+      // TradingView API search parameters
+      const params = new URLSearchParams({
+        text: query,
+        exchange: '',
+        lang: 'en',
+        search_type: '',
+        hl: 'true',
+        country: 'US',
+        domain: 'production',
+        sort_by_country: 'US',
+      });
+      
+      const response = await fetch('https://symbol-search.tradingview.com/symbol_search/v3/?' + params.toString() + '&limit=30');
+      
+      if (!response.ok) {
+        throw new Error(`Symbol search failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Process and return results
+      if (data && data.symbols) {
+        return data.symbols.map(item => ({
+          symbol: item.symbol,
+          name: item.description,
+          exchange: item.exchange,
+          type: item.type
+        }));
+      }
+      
+      // Fallback search if TradingView search fails or returns no results
+      return this.fallbackSearch(query);
+    } catch (error) {
+      console.error('Error searching symbols:', error);
+      // Fallback to local search
+      return this.fallbackSearch(query);
+    }
+  },
+  
+  /**
+   * Fallback search for symbols when API fails
+   * @param {string} query Search query
+   * @returns {Array} Filtered array of symbols
+   */
+  fallbackSearch(query) {
+    if (!query || query.length < 2) return [];
+    
+    const normalizedQuery = query.toUpperCase();
+    
+    // Filter popular symbols that match the query
+    const filtered = Object.entries(this.getPopularSymbols())
+      .filter(([category, symbols]) => 
+        symbols.some(s => 
+          s.symbol.toUpperCase().includes(normalizedQuery) || 
+          s.name.toUpperCase().includes(normalizedQuery)
+        )
+      )
+      .flatMap(([category, symbols]) => 
+        symbols.filter(s => 
+          s.symbol.toUpperCase().includes(normalizedQuery) || 
+          s.name.toUpperCase().includes(normalizedQuery)
+        )
+      );
+    
+    return filtered.slice(0, 15); // Limit results
+  },
+  
+  /**
+   * Get a list of popular trading symbols by category
+   * @returns {Object} Object with categories and their symbols
+   */
+  getPopularSymbols() {
+    return {
+      forex: [
+        { symbol: 'EUR/USD', name: 'Euro / US Dollar', exchange: 'FOREX' },
+        { symbol: 'GBP/USD', name: 'British Pound / US Dollar', exchange: 'FOREX' },
+        { symbol: 'USD/JPY', name: 'US Dollar / Japanese Yen', exchange: 'FOREX' },
+        { symbol: 'AUD/USD', name: 'Australian Dollar / US Dollar', exchange: 'FOREX' },
+        { symbol: 'USD/CAD', name: 'US Dollar / Canadian Dollar', exchange: 'FOREX' },
+        { symbol: 'NZD/USD', name: 'New Zealand Dollar / US Dollar', exchange: 'FOREX' },
+        { symbol: 'USD/CHF', name: 'US Dollar / Swiss Franc', exchange: 'FOREX' },
+        { symbol: 'EUR/GBP', name: 'Euro / British Pound', exchange: 'FOREX' },
+        { symbol: 'EUR/JPY', name: 'Euro / Japanese Yen', exchange: 'FOREX' },
+        { symbol: 'GBP/JPY', name: 'British Pound / Japanese Yen', exchange: 'FOREX' },
+      ],
+      crypto: [
+        { symbol: 'BTC/USD', name: 'Bitcoin / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'ETH/USD', name: 'Ethereum / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'XRP/USD', name: 'Ripple / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'BCH/USD', name: 'Bitcoin Cash / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'LTC/USD', name: 'Litecoin / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'ADA/USD', name: 'Cardano / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'DOT/USD', name: 'Polkadot / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'LINK/USD', name: 'Chainlink / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'BNB/USD', name: 'Binance Coin / US Dollar', exchange: 'CRYPTO' },
+        { symbol: 'SOL/USD', name: 'Solana / US Dollar', exchange: 'CRYPTO' },
+      ],
+      commodities: [
+        { symbol: 'XAUUSD', name: 'Gold / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'XAGUSD', name: 'Silver / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'WTICOUSD', name: 'Crude Oil WTI / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'BRENTCMDUSD', name: 'Brent Crude Oil / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'NATGASUSD', name: 'Natural Gas / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'COPPERCMDUSD', name: 'Copper / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'XPTUSD', name: 'Platinum / US Dollar', exchange: 'COMMODITIES' },
+        { symbol: 'XPDUSD', name: 'Palladium / US Dollar', exchange: 'COMMODITIES' },
+      ],
+      stocks: [
+        { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
+        { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+        { symbol: 'AMZN', name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+        { symbol: 'GOOGL', name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+        { symbol: 'META', name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+        { symbol: 'TSLA', name: 'Tesla Inc.', exchange: 'NASDAQ' },
+        { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+        { symbol: 'JPM', name: 'JPMorgan Chase & Co.', exchange: 'NYSE' },
+        { symbol: 'BAC', name: 'Bank of America Corporation', exchange: 'NYSE' },
+        { symbol: 'DIS', name: 'The Walt Disney Company', exchange: 'NYSE' },
+      ],
+    };
+  },
+
+  /**
+   * Get symbol-specific news
+   * @param {string} symbol Trading symbol
+   * @returns {Promise<Array>} Array of news objects
+   */
+  async getSymbolNews(symbol) {
+    try {
+      // Convert symbols with slashes to the format expected by news APIs
+      const formattedSymbol = symbol.replace('/', '');
+      
+      // Try Finnhub API first (requires API key)
+      const FINNHUB_API_KEY = 'cvr1e9pr01qp88co31igcvr1e9pr01qp88co31j0';
+      const response = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${formattedSymbol}&from=2025-01-01&to=2025-04-10&token=${FINNHUB_API_KEY}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (Array.isArray(data) && data.length > 0) {
+          return data.map(item => ({
+            ...item,
+            datetime: new Date(item.datetime * 1000).toLocaleString(),
+            symbol: symbol
+          }));
+        }
+      }
+      
+      // Fallback to more general category-based news if symbol-specific news is not available
+      return this.getFallbackNews(symbol);
+    } catch (error) {
+      console.error(`Error fetching news for ${symbol}:`, error);
+      return this.getFallbackNews(symbol);
+    }
+  },
+  
+  /**
+   * Get fallback news when symbol-specific news is not available
+   * @param {string} symbol Trading symbol
+   * @returns {Promise<Array>} Array of news objects
+   */
+  async getFallbackNews(symbol) {
+    try {
+      // Determine the appropriate category based on symbol
+      let category = 'forex';
+      
+      if (symbol.includes('/USD') || symbol.includes('BTC') || symbol.includes('ETH')) {
+        category = 'crypto';
+      } else if (['XAUUSD', 'XAGUSD', 'WTICOUSD'].some(s => symbol.includes(s))) {
+        category = 'general';
+      } else if (!/\//.test(symbol)) {
+        category = 'general';  // Likely a stock
+      }
+      
+      const FINNHUB_API_KEY = 'cvr1e9pr01qp88co31igcvr1e9pr01qp88co31j0';
+      const response = await fetch(`https://finnhub.io/api/v1/news?category=${category}&token=${FINNHUB_API_KEY}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (Array.isArray(data) && data.length > 0) {
+          return data.map(item => ({
+            ...item,
+            datetime: new Date(item.datetime * 1000).toLocaleString()
+          }));
+        }
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error fetching fallback news:', error);
+      return [];
+    }
   }
 };
 

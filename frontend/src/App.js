@@ -19,12 +19,17 @@ import {
   Alert,
   Avatar,
   Chip,
+  Grid,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import TradingViewWidget from './components/ExnessTrader';
 import MarketDataService from './services/marketDataService';
+import AIAnalysisPanel from './components/AIAnalysisPanel';
+import TradeHistory from './components/TradeHistory';
 
 const darkTheme = createTheme({
   palette: {
@@ -82,6 +87,8 @@ function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState(null);
   const [popularSymbols, setPopularSymbols] = useState({});
+  const [tradeHistory, setTradeHistory] = useState([]);
+  const [activeTab, setActiveTab] = useState(0);
 
   // Get API key from environment
   const FINNHUB_API_KEY = 'cvr1e9pr01qp88co31igcvr1e9pr01qp88co31j0'; // Hardcoded to bypass env caching issues
@@ -200,170 +207,179 @@ function App() {
               }
               
               const data = await response.json();
-              if (Array.isArray(data) && data.length > 0) {
-                console.log(`Received ${data.length} news items for ${category}`);
-                allNews = [...allNews, ...data];
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch ${category} news:`, err);
+              allNews = allNews.concat(data);
+            } catch (error) {
+              console.error(`Error fetching ${category} news:`, error);
             }
           }
           
-          if (allNews.length === 0) {
-            retryCount++;
-            if (retryCount < maxRetries) {
-              console.log(`No news found, retrying... (${retryCount}/${maxRetries})`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-            }
+          retryCount++;
+          if (allNews.length === 0 && retryCount < maxRetries) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
         }
 
-        if (allNews.length === 0) {
-          throw new Error('No news available after all retries');
-        }
+        // Process news items
+        const processedNews = allNews.map(item => {
+          return {
+            ...item,
+            datetime: new Date(item.datetime * 1000).toLocaleString(),
+            symbol: item.related || '',
+            headline: item.headline || 'News headline unavailable'
+          };
+        }).filter(item => item.headline && item.headline.length > 0);
 
-        // Sort by datetime and take latest 10
-        allNews.sort((a, b) => b.datetime - a.datetime);
-        const latestNews = allNews.slice(0, 10).map(news => ({
-          ...news,
-          datetime: new Date(news.datetime * 1000).toLocaleString(),
-          summary: news.summary?.slice(0, 150) + '...' // Truncate long summaries
-        }));
-
-        console.log('Processed news items:', latestNews.length);
-        setMarketNews(latestNews);
-        setError(null);
-      } catch (err) {
-        setError('Unable to load market news');
-        console.error('Error fetching news:', err);
+        setMarketNews(processedNews);
+      } catch (error) {
+        console.error('Error fetching market news:', error);
+        setError('Failed to load market news. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchNews();
-    const interval = setInterval(fetchNews, 300000); // Refresh every 5 minutes
+    
+    // Refresh news every 5 minutes
+    const interval = setInterval(fetchNews, 300000);
+    
     return () => clearInterval(interval);
   }, [FINNHUB_API_KEY]);
+
+  // Fetch news for the selected symbol
+  useEffect(() => {
+    const fetchSymbolNews = async () => {
+      if (!currentSymbol) return;
+      
+      setLoading(true);
+      try {
+        // Use the new symbol-specific news service
+        const news = await MarketDataService.getSymbolNews(currentSymbol);
+        setMarketNews(news);
+        setError(null);
+      } catch (error) {
+        console.error(`Error fetching ${currentSymbol} news:`, error);
+        setError(`Failed to load news for ${currentSymbol}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSymbolNews();
+    
+    // Refresh news every 3 minutes or when symbol changes
+    const interval = setInterval(fetchSymbolNews, 180000);
+    
+    return () => clearInterval(interval);
+  }, [currentSymbol]); // Re-run when symbol changes
+
+  // Filter news for the selected symbol
+  const getFilteredNews = () => {
+    if (!marketNews || marketNews.length === 0) return [];
+    
+    // Normalize current symbol for comparison
+    const normalizedSymbol = currentSymbol.replace('/', '').toUpperCase();
+    
+    // Filter news that contains the current symbol
+    return marketNews.filter(news => {
+      // Check in related symbols
+      if (news.related && news.related.includes(normalizedSymbol)) {
+        return true;
+      }
+      // Check in headline
+      if (news.headline && news.headline.toUpperCase().includes(normalizedSymbol)) {
+        return true;
+      }
+      // Check in summary
+      if (news.summary && news.summary.toUpperCase().includes(normalizedSymbol)) {
+        return true;
+      }
+      return false;
+    });
+  };
+
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  // Handle successful trade execution
+  const handleTradeExecuted = (tradeData) => {
+    // In a real app, you would update the trade history
+    console.log('Trade executed:', tradeData);
+    // For now, we're using mock data in the TradeHistory component
+  };
 
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <Box sx={{ minHeight: '100vh', backgroundColor: '#131722' }}>
-        <Container maxWidth="xl" sx={{ py: 2 }}>
-          <Typography variant="h5" sx={{ mb: 2, color: '#d1d4dc' }}>
-            AI Forex Trader
-          </Typography>
-          
-          <Box display="flex" gap={2}>
-            {/* Left Sidebar - Watchlist */}
-            <Paper sx={{ width: 300, p: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ color: '#d1d4dc' }}>
+      <Container maxWidth="xl" sx={{ mt: 3, mb: 3 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          AI Forex Trader
+        </Typography>
+        
+        <Grid container spacing={2}>
+          {/* Left sidebar with watchlist and search */}
+          <Grid item xs={12} md={3}>
+            <Paper elevation={3} sx={{ p: 2, height: '80vh', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="h6" component="h2" gutterBottom>
                 Watchlist
               </Typography>
               
               <Autocomplete
                 freeSolo
                 options={searchResults}
-                getOptionLabel={(option) => 
-                  typeof option === 'string' ? option : `${option.symbol} - ${option.name}`
-                }
-                inputValue={searchInput}
+                getOptionLabel={(option) => option.symbol || option}
                 onInputChange={debouncedSearch}
+                onChange={(event, value) => {
+                  if (value && typeof value === 'object') {
+                    handleAddToWatchlist(value.symbol);
+                  } else if (value && typeof value === 'string') {
+                    handleAddToWatchlist(value);
+                  }
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Search markets"
+                    label="Search Symbol"
+                    margin="normal"
                     variant="outlined"
-                    size="small"
                     fullWidth
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
                         <>
-                          {searchLoading ? <CircularProgress color="inherit" size={20} /> : <SearchIcon color="disabled" />}
+                          {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
                           {params.InputProps.endAdornment}
                         </>
                       ),
                     }}
-                    sx={{
-                      mb: 2,
-                      '& .MuiOutlinedInput-root': {
-                        color: '#d1d4dc',
-                        '& fieldset': {
-                          borderColor: '#2a2e39',
-                        },
-                        '&:hover fieldset': {
-                          borderColor: '#90caf9',
-                        },
-                      },
-                      '& .MuiInputLabel-root': {
-                        color: '#787b86',
-                      },
-                    }}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <ListItem 
-                    {...props} 
-                    onClick={() => handleAddToWatchlist(option.symbol)}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      py: 1,
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        {option.symbol}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.name}
-                      </Typography>
-                    </Box>
-                    
-                    {option.exchange && (
-                      <Chip
-                        size="small"
-                        label={option.exchange}
-                        sx={{ 
-                          bgcolor: 'rgba(66, 133, 244, 0.1)',
-                          color: '#90caf9',
-                          fontSize: '0.7rem'
-                        }}
-                      />
-                    )}
-                  </ListItem>
-                )}
-                noOptionsText="No markets found. Try a different search."
-                loadingText="Searching markets..."
-                loading={searchLoading}
-                sx={{
-                  '& .MuiAutocomplete-paper': {
-                    backgroundColor: '#1e222d',
-                    color: '#d1d4dc',
-                  }
-                }}
               />
-
-              <List sx={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <List
+                sx={{
+                  width: '100%',
+                  bgcolor: 'background.paper',
+                  overflow: 'auto',
+                  flexGrow: 1
+                }}
+                component="nav"
+              >
                 {watchlist.map((symbol) => (
                   <ListItem
-                    key={symbol}
                     button
-                    selected={symbol === currentSymbol}
+                    key={symbol}
+                    selected={currentSymbol === symbol}
                     onClick={() => handleSelectSymbol(symbol)}
                   >
-                    <ListItemText 
-                      primary={symbol}
-                    />
+                    <ListItemText primary={symbol} />
                     <ListItemSecondaryAction>
-                      <IconButton 
-                        edge="end" 
-                        size="small"
-                        onClick={() => removeFromWatchlist(symbol)}
-                      >
+                      <IconButton edge="end" aria-label="delete" onClick={() => removeFromWatchlist(symbol)}>
                         <DeleteIcon />
                       </IconButton>
                     </ListItemSecondaryAction>
@@ -371,56 +387,111 @@ function App() {
                 ))}
               </List>
             </Paper>
-
-            {/* Center - Chart */}
-            <Paper sx={{ flex: 1 }}>
-              <Box sx={{ height: 'calc(100vh - 100px)', p: 2 }}>
-                <TradingViewWidget symbol={currentSymbol} />
-              </Box>
-            </Paper>
-
-            {/* Right Sidebar - Market News */}
-            <Paper sx={{ width: 300, p: 2 }}>
-              <Typography variant="h6" gutterBottom sx={{ color: '#d1d4dc' }}>
-                Market News
-              </Typography>
+          </Grid>
+          
+          {/* Main content area - center and right columns */}
+          <Grid item xs={12} md={9}>
+            <Grid container spacing={2}>
+              {/* Center column - Chart */}
+              <Grid item xs={12} md={8}>
+                <Paper elevation={3} sx={{ height: '60vh', display: 'flex', flexDirection: 'column' }}>
+                  {/* Main chart */}
+                  <Box
+                    sx={{
+                      flexGrow: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <TradingViewWidget symbol={currentSymbol} />
+                  </Box>
+                </Paper>
+                
+                {/* AI Analysis Panel below the chart */}
+                <Paper elevation={3} sx={{ mt: 2, height: '30vh', overflow: 'auto' }}>
+                  <Tabs
+                    value={activeTab}
+                    onChange={handleTabChange}
+                    variant="fullWidth"
+                    sx={{ borderBottom: 1, borderColor: 'divider' }}
+                  >
+                    <Tab label="AI Analysis" />
+                    <Tab label="Trade History" />
+                  </Tabs>
+                  
+                  <Box sx={{ p: 0, height: 'calc(30vh - 48px)', overflow: 'auto' }}>
+                    {activeTab === 0 ? (
+                      <AIAnalysisPanel 
+                        symbol={currentSymbol} 
+                        onExecuteTrade={handleTradeExecuted}
+                      />
+                    ) : (
+                      <TradeHistory />
+                    )}
+                  </Box>
+                </Paper>
+              </Grid>
               
-              {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              )}
-
-              {loading ? (
-                <Box display="flex" justifyContent="center" p={2}>
-                  <CircularProgress size={24} />
-                </Box>
-              ) : (
-                <List sx={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}>
-                  {marketNews.map((news, index) => (
-                    <React.Fragment key={news.id}>
-                      <ListItem 
-                        component="a" 
-                        href={news.url} 
-                        target="_blank"
-                        sx={{ display: 'block' }}
-                      >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          {news.headline}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#787b86' }}>
-                          {news.datetime}
-                        </Typography>
-                      </ListItem>
-                      {index < marketNews.length - 1 && <Divider />}
-                    </React.Fragment>
-                  ))}
-                </List>
-              )}
-            </Paper>
-          </Box>
-        </Container>
-      </Box>
+              {/* Right column - News */}
+              <Grid item xs={12} md={4}>
+                <Paper elevation={3} sx={{ p: 2, height: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <Typography variant="h6" component="h2" gutterBottom>
+                    {currentSymbol} News
+                  </Typography>
+                  
+                  {error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      {error}
+                    </Alert>
+                  )}
+                  
+                  {loading ? (
+                    <Box display="flex" justifyContent="center" p={2}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <List sx={{ overflow: 'auto', flexGrow: 1 }}>
+                      {getFilteredNews().length > 0 ? (
+                        getFilteredNews().map((news, index) => (
+                          <React.Fragment key={news.id || index}>
+                            <ListItem 
+                              component="a" 
+                              href={news.url} 
+                              target="_blank"
+                              sx={{ display: 'block' }}
+                            >
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                {news.headline}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {news.datetime}
+                              </Typography>
+                              {news.summary && (
+                                <Typography variant="body2" sx={{ mt: 1, fontSize: '0.85rem' }}>
+                                  {news.summary.length > 120 ? `${news.summary.substring(0, 120)}...` : news.summary}
+                                </Typography>
+                              )}
+                            </ListItem>
+                            {index < getFilteredNews().length - 1 && <Divider />}
+                          </React.Fragment>
+                        ))
+                      ) : (
+                        <Box sx={{ p: 2, textAlign: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No related news found for {currentSymbol}
+                          </Typography>
+                        </Box>
+                      )}
+                    </List>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Container>
     </ThemeProvider>
   );
 }
