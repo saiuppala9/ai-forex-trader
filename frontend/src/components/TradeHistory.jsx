@@ -152,10 +152,10 @@ const TradeHistory = () => {
               <Typography 
                 variant="h5" 
                 component="div"
-                color={metrics.avg_return >= 0 ? 'success.main' : 'error.main'}
+                color={(metrics.avg_return || 0) >= 0 ? 'success.main' : 'error.main'}
                 fontWeight="medium"
               >
-                {metrics.avg_return > 0 ? '+' : ''}{metrics.avg_return.toFixed(2)}%
+                {(metrics.avg_return || 0) > 0 ? '+' : ''}{(metrics.avg_return !== undefined && metrics.avg_return !== null) ? metrics.avg_return.toFixed(2) : '0.00'}%
               </Typography>
             </CardContent>
           </Card>

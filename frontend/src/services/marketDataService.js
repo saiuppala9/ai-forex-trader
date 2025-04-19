@@ -2,7 +2,8 @@
  * Service for interacting with market data and news services
  */
 
-// Market data service object with various methods
+// Market Data Service for handling data fetching and transformation
+// This service centralizes all market data requests to ensure consistency across components
 const MarketDataService = {
   /**
    * Search for trading symbols
@@ -682,6 +683,179 @@ const MarketDataService = {
         sentiment: sentiment
       };
     });
+  },
+  /**
+   * Get real-time price data for watchlist symbols
+   * This ensures the watchlist prices match the chart data
+   * @param {Array} symbols - Array of symbol strings to fetch data for
+   * @returns {Promise<Object>} - Object with symbol keys and price data values
+   */
+  getRealtimePriceData: async (symbols) => {
+    try {
+      // In a real implementation, this would fetch from a WebSocket or REST API
+      // For demo purposes, we'll generate prices that match the chart more closely
+      
+      // Base prices for common symbols (these should match chart data better)
+      const basePrices = {
+        // Forex Pairs
+        'EUR/USD': 1.0876,
+        'GBP/USD': 1.2543,
+        'USD/JPY': 151.67,
+        'AUD/USD': 0.6673,
+        'USD/CAD': 1.3731,
+        'NZD/USD': 0.6021,
+        'USD/CHF': 0.8972,
+        'EUR/GBP': 0.8670,
+        'EUR/JPY': 164.98,
+        'GBP/JPY': 190.26,
+        'XAUUSD': 2321.45,
+        
+        // US Stocks
+        'AAPL': 169.00,
+        'MSFT': 425.40,
+        'AMZN': 182.62,
+        'GOOGL': 171.05,
+        
+        // Crypto
+        'BTC/USD': 64821.43,
+        'ETH/USD': 3072.18,
+        
+        // Indian Stocks & Indices
+        'NIFTY50': 22450.25,
+        'BANKNIFTY': 47512.85,
+        'SENSEX': 73872.50,
+        'RELIANCE': 2930.75,
+        'TCS': 3845.20,
+        'HDFCBANK': 1615.40,
+        'INFY': 1545.65,
+        'ICICIBANK': 1032.90,
+        'HINDUNILVR': 2305.55,
+        'SBIN': 743.20,
+        'TATAMOTORS': 945.80,
+        'WIPRO': 458.25,
+        'KOTAKBANK': 1752.45,
+        'AXISBANK': 1082.35,
+        'BHARTIARTL': 1175.60,
+        'ITC': 428.15,
+        'HCLTECH': 1342.75,
+        'SUNPHARMA': 1265.90,
+        'MARUTI': 10425.30,
+        'ADANIENT': 2856.45,
+        'LT': 3245.90,
+        'TITAN': 3420.75,
+        'BAJFINANCE': 6980.45,
+        'ASIANPAINT': 2845.30
+      };
+      
+      // Percentage changes for realistic market movements
+      const changes = {
+        // Forex pairs
+        'EUR/USD': '+0.14%',
+        'GBP/USD': '+0.13%',
+        'USD/JPY': '-0.36%',
+        'AUD/USD': '-0.87%',
+        'USD/CAD': '+0.25%',
+        'NZD/USD': '-0.10%',
+        'USD/CHF': '+0.13%',
+        'EUR/GBP': '-0.10%',
+        'EUR/JPY': '-0.05%',
+        'GBP/JPY': '+0.01%',
+        'XAUUSD': '+0.22%',
+        
+        // US Stocks
+        'AAPL': '-0.58%',
+        'MSFT': '+0.45%',
+        'AMZN': '+0.78%',
+        'GOOGL': '+0.32%',
+        
+        // Crypto
+        'BTC/USD': '+1.24%',
+        'ETH/USD': '+2.08%',
+        
+        // Indian Markets
+        'NIFTY50': '+0.65%',
+        'BANKNIFTY': '+0.82%',
+        'SENSEX': '+0.58%',
+        'RELIANCE': '+1.22%',
+        'TCS': '-0.45%',
+        'HDFCBANK': '+0.32%',
+        'INFY': '-0.78%',
+        'ICICIBANK': '+0.91%',
+        'HINDUNILVR': '+0.25%',
+        'SBIN': '+1.45%',
+        'TATAMOTORS': '+2.12%',
+        'WIPRO': '-0.35%',
+        'KOTAKBANK': '+0.42%',
+        'AXISBANK': '+0.68%',
+        'BHARTIARTL': '+0.75%',
+        'ITC': '-0.28%',
+        'HCLTECH': '-0.52%',
+        'SUNPHARMA': '+1.05%',
+        'MARUTI': '+1.32%',
+        'ADANIENT': '+3.45%',
+        'LT': '+0.86%',
+        'TITAN': '-0.42%',
+        'BAJFINANCE': '+1.18%',
+        'ASIANPAINT': '-0.32%'
+      };
+      
+      // Generate and return real-time data for requested symbols
+      const result = {};
+      
+      symbols.forEach(symbol => {
+        // Determine if price is trending up or down based on the change value
+        const changeValue = changes[symbol] || (Math.random() > 0.5 ? '+' : '-') + (Math.random() * 0.5).toFixed(2) + '%';
+        const isBull = changeValue.startsWith('+');
+        
+        // Set price - use base price or generate a realistic one for the symbol
+        let price;
+        if (basePrices[symbol]) {
+          // Add more significant random variation to base price for visible changes
+          const variation = (Math.random() * 0.003) - 0.0015;
+          price = basePrices[symbol] * (1 + variation);
+          
+          // Log price changes for debugging
+          console.log(`Price update for ${symbol}: ${price.toFixed(4)} (variation: ${variation.toFixed(6)})`);
+          
+        } else if (symbol.includes('/USD') || symbol.includes('USD/')) {
+          // Standard forex pair pricing
+          price = 0.5 + Math.random() * 1.5;
+        } else if (symbol.includes('JPY')) {
+          // JPY pairs tend to have higher values
+          price = 100 + Math.random() * 100;
+        } else if (symbol.includes('XAU') || symbol.includes('GOLD')) {
+          // Gold pricing
+          price = 2300 + Math.random() * 50;
+        } else if (symbol.includes('BTC')) {
+          // Bitcoin pricing
+          price = 63000 + Math.random() * 4000;
+        } else if (symbol.includes('ETH')) {
+          // Ethereum pricing
+          price = 3000 + Math.random() * 200;
+        } else {
+          // Default pricing for other instruments
+          price = 10 + Math.random() * 1000;
+        }
+        
+        // Format the price appropriately
+        const formattedPrice = symbol.includes('JPY') || 
+                            symbol.includes('BTC') || 
+                            symbol.includes('XAU') ? 
+                            price.toFixed(2) : price.toFixed(4);
+        
+        // Store data for this symbol
+        result[symbol] = {
+          price: parseFloat(formattedPrice),
+          change: changeValue,
+          trend: isBull ? 'up' : 'down'
+        };
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Error fetching real-time price data:', error);
+      return {};
+    }
   }
 };
 

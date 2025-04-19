@@ -1,0 +1,47 @@
+{
+  "symbol": "EUR/USD",
+  "timeframe": "15m",
+  "signal": "BUY",
+  "confidence": 60,
+  "analysis": "The EUR/USD pair is currently consolidating in a tight range on the 15m timeframe, after a recent bullish push failed to break above the 1.1420 resistance. Price action is hovering around the 1.1395 level, with the high and low of the current candle indicating indecision. While the broader market sentiment leans slightly towards bullishness, the short-term picture remains unclear.  A breakout above 1.1420 could trigger further upside momentum, while a drop below 1.1370 might signal a bearish reversal.  The current market conditions warrant a cautious approach, waiting for a clearer confirmation of direction before entering a trade.",
+  "timestamp": "2025-04-19T16:21:48.094554",
+  "tradeSetup": {
+    "entryPrice": "1.1422",
+    "stopLoss": "1.139",
+    "takeProfit": "1.145",
+    "entryReason": "BUY setup based on 15m timeframe analysis",
+    "riskRewardRatio": "1:2",
+    "riskPercentage": "1%"
+  },
+  "technicalData": {
+    "supportLevels": [
+      1.137,
+      1.135
+    ],
+    "resistanceLevels": [
+      1.142,
+      1.145
+    ],
+    "indicators": [
+      {
+        "name": "RSI",
+        "value": "52 (Neutral)",
+        "signal": "neutral"
+      },
+      {
+        "name": "MACD",
+        "value": "Histogram showing weakening bullish momentum",
+        "signal": "buy"
+      },
+      {
+        "name": "Moving Averages",
+        "value": "20-period MA above 50-period MA, suggesting short-term bullish bias",
+        "signal": "buy"
+      }
+    ]
+  },
+  "marketSentiment": "Slightly bullish in the medium term, but short-term sentiment is mixed due to the current consolidation",
+  "riskAssessment": "Moderate.  The tight range increases the risk of whipsaws, and a clear break in either direction is needed to confirm a trading opportunity.  Proper stop-loss placement is crucial to manage risk effectively.",
+  "volatilityAssessment": "Moderate",
+  "expectedDuration": "1-4 hours"
+}

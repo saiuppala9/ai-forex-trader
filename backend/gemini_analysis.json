@@ -1,0 +1,40 @@
+{
+  "Signal": "NEUTRAL",
+  "Confidence": 60,
+  "Analysis": "The EUR/USD pair is currently consolidating in a tight range between 1.1372 and 1.1418 on the 15-minute timeframe.  Price action shows a recent rejection from the high, suggesting potential short-term bearish pressure. However, the pair is still trading above the key psychological level of 1.1350, which could act as support.  The overall trend on higher timeframes appears to be slightly bullish, but the current short-term price action is indecisive.  Further observation is needed to determine a clear directional bias. Volatility is relatively low, suggesting range-bound trading might continue for the next few periods. A breakout above 1.1418 would signal a continuation of the bullish move, while a break below 1.1372 would suggest a potential bearish reversal.",
+  "Entry points": {
+    "Buy": "1.1420",
+    "Sell": "1.1370"
+  },
+  "Stop loss levels": {
+    "Buy": "1.1390",
+    "Sell": "1.1400"
+  },
+  "Take profit targets": {
+    "TP1": {
+      "Buy": "1.1450",
+      "Sell": "1.1340"
+    },
+    "TP2": {
+      "Buy": "1.1480",
+      "Sell": "1.1310"
+    }
+  },
+  "Support/Resistance": {
+    "Support": [
+      "1.1350",
+      "1.1320"
+    ],
+    "Resistance": [
+      "1.1418",
+      "1.1450"
+    ]
+  },
+  "Key indicators": {
+    "RSI": "Neutral (around 50)",
+    "MACD": "Showing a potential bearish crossover",
+    "Stochastic": "Oscillating in the neutral zone"
+  },
+  "Market sentiment": "Slightly bullish in the long term, but current short-term sentiment is neutral due to the consolidation.",
+  "Risk assessment": "Moderate.  Tight stop losses are recommended due to the current consolidation and potential for whipsaw price action."
+}

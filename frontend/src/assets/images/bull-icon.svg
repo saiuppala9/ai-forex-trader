@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512px" height="512px" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Bull Market Icon</title>
+    <g id="bull-market" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M452,260 C452,260 427,240 417,230 C407,220 397,215 387,215 C377,215 347,225 337,225 C327,225 317,220 297,220 C277,220 262,235 237,235 C212,235 187,220 162,220 C137,220 122,235 97,235 C72,235 57,220 42,220 C27,220 12,230 12,245 C12,260 27,275 42,275 C57,275 62,265 97,265 C132,265 152,280 177,280 C202,280 212,265 247,265 C282,265 292,280 317,280 C342,280 347,260 387,260 C427,260 447,285 447,285" id="body" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M387,185 C387,185 387,155 387,135 C387,115 402,95 417,95 C432,95 437,105 442,115 C447,125 452,145 447,155 C442,165 427,170 417,170 C407,170 397,175 387,185 Z" id="head" stroke="#4CAF50" stroke-width="12" fill="#388E3C" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M387,205 C387,205 377,195 367,195 C357,195 347,205 347,205" id="eye" stroke="#4CAF50" stroke-width="8" stroke-linecap="round"></path>
+        <path d="M282,300 L282,350" id="front-leg-1" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M252,300 L252,360" id="front-leg-2" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M142,300 L142,340" id="back-leg-1" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M112,300 L112,350" id="back-leg-2" stroke="#4CAF50" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M427,265 L467,225" id="tail" stroke="#4CAF50" stroke-width="8" stroke-linecap="round"></path>
+        <path d="M172,205 L312,205" id="trend-line" stroke="#4CAF50" stroke-width="8" stroke-linecap="round" stroke-dasharray="4,12"></path>
+        <polygon id="triangle-up" fill="#4CAF50" points="440 140 470 190 410 190"></polygon>
+    </g>
+</svg>

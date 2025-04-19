@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240px" height="60px" viewBox="0 0 240 60" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Forex Trader Logo</title>
+    <defs>
+        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="bullBearGradient">
+            <stop stop-color="#4CAF50" offset="0%"></stop>
+            <stop stop-color="#EF5350" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="logo" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <rect id="background" fill="#1E1E1E" x="0" y="0" width="240" height="60" rx="8"></rect>
+        <g id="bull-bear-icons" transform="translate(10, 10)">
+            <path d="M20,30 C20,30 15,25 13,23 C11,21 9,20 7,20 C5,20 0,22 0,24 C0,26 5,28 7,28 C9,28 11,26 15,26 C19,26 21,30 21,30" id="bull-mini" stroke="#4CAF50" stroke-width="2" stroke-linecap="round"></path>
+            <path d="M7,16 C7,16 7,12 7,10 C7,8 9,6 11,6 C13,6 13.5,7 14,8 C14.5,9 15,11 14.5,12 C14,13 12,13.5 11,13.5 C10,13.5 8,14 7,16 Z" id="bull-head" stroke="#4CAF50" stroke-width="2" fill="#388E3C" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M40,10 C40,12 38,14 36,14 C34,14 33.5,13 33,12 C32.5,11 32,9 32.5,8 C33,7 35,6.5 36,6.5 C37,6.5 39,6 40,4 C40,4 40,8 40,10 Z" id="bear-head" stroke="#EF5350" stroke-width="2" fill="#C62828" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M26,30 C26,30 31,25 33,23 C35,21 37,20 39,20 C41,20 46,22 46,24 C46,26 41,28 39,28 C37,28 35,26 31,26 C27,26 25,30 25,30" id="bear-mini" stroke="#EF5350" stroke-width="2" stroke-linecap="round"></path>
+            <path d="M15,20 L31,20" id="divider-line" stroke="#FFD700" stroke-width="1.5" stroke-linecap="round"></path>
+        </g>
+        <text id="AI-FOREX" font-family="Arial-BoldMT, Arial" font-size="18" font-weight="bold" fill="#FFFFFF">
+            <tspan x="60" y="28">AI FOREX</tspan>
+        </text>
+        <text id="TRADER" font-family="Arial-BoldMT, Arial" font-size="24" font-weight="bold" fill="url(#bullBearGradient)">
+            <tspan x="60" y="48">TRADER</tspan>
+        </text>
+        <path d="M175,15 L205,15 L205,20 L190,40 L205,40 L205,45 L175,45 L175,40 L190,20 L175,20 Z" id="chart-icon" fill="#FFD700"></path>
+        <path d="M210,30 L215,25 L220,35 L225,20 L230,30" id="chart-line" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    </g>
+</svg>

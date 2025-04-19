@@ -12,9 +12,168 @@ const AIAnalysisService = {
    * @returns {Promise<Object>} Analysis results
    */
   async getAnalysis(symbol, timeframe = '1h') {
-    // Skip API call and directly return mock data
-    // Backend API is unavailable (404 errors)
-    return this.getMockAnalysis(symbol, timeframe);
+    try {
+      // Add timestamp to ensure we get fresh data each time
+      const timestamp = new Date().getTime();
+      
+      // First get the current market price for accuracy
+      const marketResponse = await fetch(`http://localhost:8000/api/market/price/${symbol}?_t=${timestamp}`);
+      let currentMarketData = null;
+      
+      if (marketResponse.ok) {
+        currentMarketData = await marketResponse.json();
+        console.log('Current market data:', currentMarketData);
+      }
+      
+      // Using the correct API endpoint from our backend with cache-busting parameter
+      const response = await fetch(`http://localhost:8000/api/analysis/${symbol}?timeframe=${timeframe}&_t=${timestamp}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching analysis: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Fresh analysis data received:', data);
+      
+      // Inject the current market price into the analysis data for accuracy
+      if (currentMarketData) {
+        data.currentMarketPrice = currentMarketData.price;
+      }
+      
+      return this.formatBackendAnalysis(data, symbol, timeframe);
+    } catch (error) {
+      console.error('Error fetching AI analysis:', error);
+      // Fallback to mock data if the API call fails
+      console.warn('Falling back to mock data');
+      return this.getMockAnalysis(symbol, timeframe);
+    }
+  },
+  
+  /**
+   * Format backend analysis data into the format expected by the frontend
+   * @param {Object} data - Raw data from backend
+   * @param {string} symbol - Trading symbol
+   * @param {string} timeframe - Chart timeframe
+   * @returns {Object} Formatted analysis data
+   */
+  formatBackendAnalysis(data, symbol, timeframe) {
+    if (!data) {
+      throw new Error('Invalid analysis data received from backend');
+    }
+    
+    console.log('Received data:', data); // Debug log
+    
+    // Handle error case
+    if (data.error) {
+      return {
+        error: data.error,
+        symbol,
+        timeframe
+      };
+    }
+    
+    // Store the current market price for later use
+    const currentMarketPrice = data.currentMarketPrice || (data.tradeSetup ? data.tradeSetup.currentPrice : null);
+    
+    // Format the data to match the frontend's expected structure
+    // Our backend API directly returns the analysis data in the root of the response
+    return {
+      signal: data.sentiment === 'bullish' ? 'buy' : 
+              data.sentiment === 'bearish' ? 'sell' : 'neutral',
+      confidence: data.confidence || 80,
+      timestamp: data.timestamp || new Date().toISOString(),
+      entryPrice: data.entryPrice,
+      stopLoss: data.stopLoss,
+      exitPrice: data.exitPrice,
+      entryReason: data.entryReason,
+      analysis: data.analysis,
+      supportLevels: data.supportLevels,
+      resistanceLevels: data.resistanceLevels,
+      indicators: data.indicators || [
+        {
+          name: 'RSI',
+          value: 'Based on AI analysis',
+          signal: data.sentiment === 'bullish' ? 'buy' : 'sell'
+        },
+        {
+          name: 'MACD',
+          value: 'Based on AI analysis',
+          signal: data.sentiment === 'bullish' ? 'buy' : 'sell'
+        }
+      ],
+      volatilityAssessment: data.volatilityAssessment,
+      expectedDuration: data.expectedDuration,
+      newsImpact: data.newsImpact,
+      news: data.news || [],
+      timeframe: timeframe,
+      symbol: symbol,
+      tradeSetup: this.formatTradeSetup(data.tradeSetup, currentMarketPrice, data.signal)
+    };
+  },
+  
+  formatTradeSetup(tradeSetup, currentMarketPrice, signal) {
+    if (!tradeSetup) return null;
+    
+    const { entryPrice, stopLoss, takeProfit, entryReason } = tradeSetup;
+    
+    // Ensure prices are realistic by checking against current market price
+    let adjustedEntryPrice = entryPrice;
+    let adjustedStopLoss = stopLoss;
+    let adjustedTakeProfit = takeProfit;
+    
+    // If we have current market price, validate the trade setup values
+    if (currentMarketPrice) {
+      const isBuy = signal.toLowerCase().includes('buy');
+      
+      // For a buy, entry should be at or slightly below market price
+      // For a sell, entry should be at or slightly above market price
+      if (Math.abs(entryPrice - currentMarketPrice) / currentMarketPrice > 0.005) {
+        // If entry is more than 0.5% away from current price, adjust it
+        adjustedEntryPrice = isBuy ? 
+          currentMarketPrice * 0.9998 : // Slightly below for buy
+          currentMarketPrice * 1.0002; // Slightly above for sell
+      }
+      
+      // For a buy: stop loss should be below entry, take profit above
+      if (isBuy) {
+        if (stopLoss >= adjustedEntryPrice) {
+          adjustedStopLoss = adjustedEntryPrice * 0.997; // 0.3% below entry
+        }
+        if (takeProfit && takeProfit <= adjustedEntryPrice) {
+          adjustedTakeProfit = adjustedEntryPrice * 1.005; // 0.5% above entry
+        }
+      } 
+      // For a sell: stop loss should be above entry, take profit below
+      else {
+        if (stopLoss <= adjustedEntryPrice) {
+          adjustedStopLoss = adjustedEntryPrice * 1.003; // 0.3% above entry
+        }
+        if (takeProfit && takeProfit >= adjustedEntryPrice) {
+          adjustedTakeProfit = adjustedEntryPrice * 0.995; // 0.5% below entry
+        }
+      }
+    }
+    
+    // Calculate the absolute pip distance for stop loss and take profit
+    const stopLossPips = Math.abs(adjustedEntryPrice - adjustedStopLoss) * 10000; // Convert to pips for forex
+    const takeProfitPips = adjustedTakeProfit ? Math.abs(adjustedEntryPrice - adjustedTakeProfit) * 10000 : 0;
+    
+    // Calculate risk-reward ratio
+    const riskRewardRatio = takeProfitPips && stopLossPips ? (takeProfitPips / stopLossPips).toFixed(1) : '-';
+    
+    // Calculate risk percentage based on a hypothetical position size
+    const riskPercentage = stopLossPips ? (stopLossPips / adjustedEntryPrice * 100).toFixed(2) : '0.00';
+    
+    // Convert to appropriate format for frontend
+    return {
+      entryPrice: adjustedEntryPrice.toFixed(5),
+      stopLoss: adjustedStopLoss.toFixed(5),
+      takeProfit: adjustedTakeProfit ? adjustedTakeProfit.toFixed(5) : '-',
+      riskRewardRatio,
+      riskPercentage,
+      entryReason,
+      currentPrice: currentMarketPrice ? currentMarketPrice.toFixed(5) : null
+    };
   },
   
   /**
@@ -25,77 +184,56 @@ const AIAnalysisService = {
    */
   async getMultiTimeframeAnalysis(symbol, timeframes = ['5m', '15m', '1h', '4h', '1d']) {
     try {
-      const basePrice = this.getBasePriceForSymbol(symbol);
-      const signal = Math.random() > 0.5 ? 'buy' : 'sell';
-      const confidence = 70 + Math.random() * 25; // 70-95% confidence
-
-      // Generate analysis for each timeframe
+      // Fetch analysis for each timeframe
+      const analysisPromises = timeframes.map(tf => this.getAnalysis(symbol, tf));
+      
+      // Wait for all analysis requests to complete
+      const analysisResults = await Promise.all(analysisPromises);
+      
+      // Create an object with timeframe keys and analysis values
       const timeframeResults = {};
-      timeframes.forEach(tf => {
-        const volatility = this.getVolatilityForTimeframe(tf);
-        const priceMove = basePrice * volatility;
-        
-        timeframeResults[tf] = {
-          signal: signal,
-          confidence: Math.round(confidence - Math.random() * 10), // Slightly vary confidence
-          timestamp: new Date().toISOString(),
-          entryPrice: basePrice,
-          stopLoss: signal === 'buy' ? 
-            basePrice * (1 - volatility) : 
-            basePrice * (1 + volatility),
-          exitPrice: signal === 'buy' ? 
-            basePrice * (1 + volatility * 2) : 
-            basePrice * (1 - volatility * 2),
-          riskRewardRatio: '1:2',
-          indicators: [
-            {
-              name: 'RSI',
-              value: signal === 'buy' ? '32' : '68',
-              signal: signal
-            },
-            {
-              name: 'MACD',
-              value: signal === 'buy' ? 'Bullish Crossover' : 'Bearish Crossover',
-              signal: signal
-            },
-            {
-              name: 'Moving Averages',
-              value: signal === 'buy' ? 'Price above MA' : 'Price below MA',
-              signal: signal
-            }
-          ],
-          patterns: [
-            {
-              name: signal === 'buy' ? 'Bullish Engulfing' : 'Bearish Engulfing',
-              signal: signal,
-              confidence: Math.round(confidence),
-              description: signal === 'buy' ? 
-                'Strong bullish reversal pattern indicating potential upward movement' :
-                'Strong bearish reversal pattern indicating potential downward movement'
-            }
-          ],
-          summary: `${symbol} shows ${signal === 'buy' ? 'bullish' : 'bearish'} momentum on the ${tf} timeframe. ` +
-            `Multiple technical indicators align for a potential ${signal === 'buy' ? 'upward' : 'downward'} movement. ` +
-            `Entry at ${basePrice.toFixed(4)} with stop loss at ${(signal === 'buy' ? basePrice * (1 - volatility) : basePrice * (1 + volatility)).toFixed(4)}.`
-        };
+      timeframes.forEach((tf, index) => {
+        timeframeResults[tf] = analysisResults[index];
       });
-
-      // Generate consensus analysis
+      
+      // Get the predominant signal across timeframes
+      let buyCount = 0;
+      let sellCount = 0;
+      
+      for (const tf of timeframes) {
+        const analysis = timeframeResults[tf];
+        if (analysis.signal === 'buy') {
+          buyCount++;
+        } else if (analysis.signal === 'sell') {
+          sellCount++;
+        }
+      }
+      
+      // Determine consensus signal
+      const signal = buyCount > sellCount ? 'buy' : 
+                    sellCount > buyCount ? 'sell' : 'neutral';
+      
+      // Calculate confidence based on agreement percentage
+      const agreementRatio = Math.max(buyCount, sellCount) / timeframes.length;
+      const confidence = Math.round(agreementRatio * 100);
+      
+      // Use the 1h timeframe as the primary for price levels if available
+      const primaryTimeframe = timeframeResults['1h'] || 
+                              timeframeResults[timeframes[0]];
+      
+      // Generate consensus analysis based on actual data
       const consensus = {
         signal: signal,
-        confidence: Math.round(confidence),
+        confidence: confidence,
         timestamp: new Date().toISOString(),
-        entryPrice: basePrice,
-        stopLoss: signal === 'buy' ? 
-          basePrice * (1 - this.getVolatilityForTimeframe('1h')) : 
-          basePrice * (1 + this.getVolatilityForTimeframe('1h')),
-        exitPrice: signal === 'buy' ? 
-          basePrice * (1 + this.getVolatilityForTimeframe('1h') * 2) : 
-          basePrice * (1 - this.getVolatilityForTimeframe('1h') * 2),
-        riskRewardRatio: '1:2',
-        summary: `Overall ${symbol} analysis shows a strong ${signal === 'buy' ? 'bullish' : 'bearish'} bias ` +
-          `with ${Math.round(confidence)}% confidence across multiple timeframes. ` +
-          `Key technical indicators and chart patterns support this ${signal} signal.`
+        entryPrice: primaryTimeframe.entryPrice,
+        stopLoss: primaryTimeframe.stopLoss,
+        exitPrice: primaryTimeframe.exitPrice,
+        takeProfitTargets: primaryTimeframe.takeProfitTargets,
+        riskRewardRatio: primaryTimeframe.riskRewardRatio,
+        summary: `Overall ${symbol} analysis shows a ${confidence > 70 ? 'strong' : 'moderate'} ${signal === 'buy' ? 'bullish' : signal === 'sell' ? 'bearish' : 'neutral'} bias ` +
+                `with ${confidence}% confidence across multiple timeframes. ` +
+                `${signal !== 'neutral' ? `Entry point at ${primaryTimeframe.entryPrice}, stop loss at ${primaryTimeframe.stopLoss}.` : 'No clear trade setup at this time.'}`
       };
       
       return {

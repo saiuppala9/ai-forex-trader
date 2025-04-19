@@ -1,10 +1,34 @@
-import React, { useEffect, useRef } from 'react';
-import { Box, Paper, Typography } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Typography, Divider, useTheme } from '@mui/material';
+import OrderBookIndicator from './OrderBookIndicator';
 import { createChart, CrosshairMode } from 'lightweight-charts';
+import MarketContainer from './MarketContainer';
 
 const TradingChart = ({ symbol, data, analysis }) => {
   const chartContainerRef = useRef();
   const chartRef = useRef();
+  const theme = useTheme();
+  // Determine market direction based on price movement in the data
+  const [marketDirection, setMarketDirection] = useState('neutral');
+  
+  // Calculate market direction based on recent price movements
+  useEffect(() => {
+    if (data && data.length >= 2) {
+      const recentData = data.slice(-10); // Last 10 candles
+      const firstPrice = recentData[0].Close;
+      const lastPrice = recentData[recentData.length - 1].Close;
+      
+      // If price increased over the period, it's bullish
+      // If price decreased, it's bearish
+      if (lastPrice > firstPrice) {
+        setMarketDirection('bull');
+      } else if (lastPrice < firstPrice) {
+        setMarketDirection('bear');
+      } else {
+        setMarketDirection('neutral');
+      }
+    }
+  }, [data]);
 
   useEffect(() => {
     if (!data || data.length === 0) return;
@@ -185,23 +209,88 @@ const TradingChart = ({ symbol, data, analysis }) => {
   }, [data, analysis]);
 
   return (
-    <Paper sx={{ p: 2, height: '700px' }}>
-      <Typography variant="h6" gutterBottom>
-        {symbol} Chart
-      </Typography>
-      <Box ref={chartContainerRef} sx={{ height: '600px' }} />
+    <MarketContainer 
+      marketDirection={marketDirection}
+      title={`${symbol} Chart`}
+      sx={{ p: 2 }}
+    >
+      {/* Chart display area with custom styling */}
+      <Box 
+        ref={chartContainerRef} 
+        sx={{ 
+          height: '600px',
+          borderRadius: 1,
+          overflow: 'hidden',
+          border: `1px solid ${theme.palette.background.chart}`,
+          '& .tv-lightweight-charts': {
+            borderRadius: 1,
+          }
+        }} 
+      />
+      
+      {/* Order Book Indicator showing buy/sell percentages */}
+      <Box mt={2}>
+        <OrderBookIndicator symbol={symbol} />
+      </Box>
+      
+      <Divider sx={{ 
+        my: 2, 
+        borderColor: marketDirection === 'bull' 
+          ? theme.palette.bull.main 
+          : marketDirection === 'bear' 
+            ? theme.palette.bear.main 
+            : theme.palette.divider,
+        opacity: 0.2
+      }} />
+      
       {analysis && analysis['1h'] && (
-        <Box mt={2}>
-          <Typography variant="subtitle2" color="primary">
+        <Box mt={1}>
+          <Typography 
+            variant="subtitle2" 
+            color={marketDirection === 'bull' ? 'text.bull' : marketDirection === 'bear' ? 'text.bear' : 'primary'}
+            fontWeight="medium"
+          >
             AI Analysis (1H):
           </Typography>
-          <Typography variant="body2">
-            Trend: {analysis['1h'].trend} | Entry: {analysis['1h'].entry_price} | 
-            Target: {analysis['1h'].target_price} | Stop: {analysis['1h'].stop_loss}
+          <Typography variant="body2" sx={{ 
+            mt: 1, 
+            p: 1.5, 
+            borderRadius: 1,
+            bgcolor: theme.palette.background.neutral,
+            border: `1px solid ${marketDirection === 'bull' 
+              ? theme.palette.bull.main 
+              : marketDirection === 'bear' 
+                ? theme.palette.bear.main 
+                : theme.palette.divider}`,
+            borderLeftWidth: 4,
+          }}>
+            <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>Trend:</Box>
+            <Box 
+              component="span" 
+              sx={{ 
+                color: analysis['1h'].trend === 'Bullish' 
+                  ? 'bull.main' 
+                  : analysis['1h'].trend === 'Bearish' 
+                    ? 'bear.main' 
+                    : 'text.primary',
+                fontWeight: 'medium'
+              }}
+            >
+              {analysis['1h'].trend}
+            </Box>
+            <br/>
+            <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>Entry:</Box>
+            <Box component="span" sx={{ fontWeight: 'medium' }}>{analysis['1h'].entry_price}</Box>
+            <br/>
+            <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>Target:</Box>
+            <Box component="span" sx={{ color: 'bull.main', fontWeight: 'medium' }}>{analysis['1h'].target_price}</Box>
+            <br/>
+            <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>Stop:</Box>
+            <Box component="span" sx={{ color: 'bear.main', fontWeight: 'medium' }}>{analysis['1h'].stop_loss}</Box>
           </Typography>
         </Box>
       )}
-    </Paper>
+    </MarketContainer>
   );
 };
 

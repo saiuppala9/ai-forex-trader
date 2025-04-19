@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512px" height="512px" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Bear Market Icon</title>
+    <g id="bear-market" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M122,135 C122,115 107,95 92,95 C77,95 72,105 67,115 C62,125 57,145 62,155 C67,165 82,170 92,170 C102,170 112,175 122,185 C122,185 122,155 122,135 Z" id="head" stroke="#EF5350" stroke-width="12" fill="#C62828" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M122,205 C122,205 132,195 142,195 C152,195 162,205 162,205" id="eye" stroke="#EF5350" stroke-width="8" stroke-linecap="round"></path>
+        <path d="M57,260 C57,260 82,240 92,230 C102,220 112,215 122,215 C132,215 162,225 172,225 C182,225 192,220 212,220 C232,220 247,235 272,235 C297,235 322,220 347,220 C372,220 387,235 412,235 C437,235 452,220 467,220 C482,220 497,230 497,245 C497,260 482,275 467,275 C452,275 447,265 412,265 C377,265 357,280 332,280 C307,280 297,265 262,265 C227,265 217,280 192,280 C167,280 162,260 122,260 C82,260 62,285 62,285" id="body" stroke="#EF5350" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M227,300 L227,350" id="front-leg-1" stroke="#EF5350" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M257,300 L257,360" id="front-leg-2" stroke="#EF5350" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M367,300 L367,340" id="back-leg-1" stroke="#EF5350" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M397,300 L397,350" id="back-leg-2" stroke="#EF5350" stroke-width="12" stroke-linecap="round"></path>
+        <path d="M82,265 L42,225" id="tail" stroke="#EF5350" stroke-width="8" stroke-linecap="round"></path>
+        <path d="M337,205 L197,205" id="trend-line" stroke="#EF5350" stroke-width="8" stroke-linecap="round" stroke-dasharray="4,12"></path>
+        <polygon id="triangle-down" fill="#EF5350" points="70 190 100 140 40 140"></polygon>
+    </g>
+</svg>
